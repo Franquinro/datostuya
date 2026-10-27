@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  arenero:
+    build: .
+    container_name: arenero-tuya
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - SYNC_INTERVAL_MINUTES=30
+      - TUYA_CLIENT_ID=h3ckrv4vgper9fgd4x4x
+      - TUYA_SECRET=8f1d6e8d57f84667a6e94e1fffa3d801
+      - TUYA_BASE_URL=https://openapi.tuyaeu.com
+      - TUYA_DEVICE_ID=bf39a8ac3f20224c9535px
+    volumes:
+      - arenero_data:/app/data
+
+volumes:
+  arenero_data:

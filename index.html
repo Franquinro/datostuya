@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control de Peso: Mei & Sami</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .cat-dot { transition: transform 0.15s ease, r 0.15s ease; cursor: pointer; }
+    .cat-dot:hover { transform: scale(1.6); }
+    .toggle-btn { transition: all 0.2s ease; cursor: pointer; user-select: none; }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center p-3 sm:p-6 font-sans">
+
+  <div class="bg-slate-800 border border-slate-700/80 rounded-2xl p-4 sm:p-6 shadow-2xl w-full max-w-3xl space-y-4">
+    
+    <!-- Encabezado y Filtros -->
+    <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-700">
+      <div>
+        <h1 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+          🐱 Control de Peso: Mei & Sami
+        </h1>
+        <p id="subtitle" class="text-xs text-slate-400">Arenero Inteligente • Sincronización automática</p>
+      </div>
+
+      <!-- Botones de Filtrado -->
+      <div class="flex items-center gap-2">
+        <button id="toggle-mei" onclick="toggleCat('mei')" class="toggle-btn flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 text-white shadow-sm ring-2 ring-blue-500/40">
+          <span class="w-2.5 h-2.5 rounded-full bg-white inline-block"></span>
+          <span id="btn-mei-text">Mei (~4.60 kg)</span>
+        </button>
+
+        <button id="toggle-sami" onclick="toggleCat('sami')" class="toggle-btn flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-orange-600 text-white shadow-sm ring-2 ring-orange-500/40">
+          <span class="w-2.5 h-2.5 rounded-full bg-white inline-block"></span>
+          <span id="btn-sami-text">Sami (~3.38 kg)</span>
+        </button>
+
+        <button id="toggle-other" onclick="toggleCat('other')" class="toggle-btn flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-900 text-slate-400 border border-slate-700 opacity-60">
+          <span class="w-2 h-2 rounded-full bg-slate-400 inline-block"></span>
+          Parciales
+        </button>
+      </div>
+    </div>
+
+    <!-- Barra de Estado / Autoescala -->
+    <div id="stat-banner" class="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2 rounded-xl bg-slate-900/80 border border-slate-700/60 text-xs text-slate-300">
+      <span id="range-info">Cargando datos...</span>
+      <span id="diff-info" class="font-medium text-slate-200"></span>
+    </div>
+
+    <!-- Contenedor del Gráfico SVG -->
+    <div class="relative bg-slate-900 border border-slate-700/80 rounded-xl p-3 sm:p-4">
+      <svg id="chart" viewBox="0 0 580 240" class="w-full h-auto overflow-visible select-none"></svg>
+
+      <!-- Tooltip Flotante -->
+      <div id="tooltip" class="hidden absolute pointer-events-none bg-slate-800 text-white border border-slate-600 shadow-2xl rounded-lg px-3 py-2 text-xs z-20 transition-opacity"></div>
+    </div>
+
+    <!-- Pie de Información y Estado -->
+    <div class="flex flex-wrap justify-between items-center text-xs text-slate-400 pt-1 gap-2">
+      <div class="flex items-center gap-3">
+        <span class="flex items-center gap-1.5">
+          <span id="pulse-dot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block"></span>
+          <span id="last-sync-text">Sincronizado</span>
+        </span>
+        <button id="btn-sync-now" onclick="triggerManualSync()" class="px-2 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 text-[11px] transition-colors flex items-center gap-1">
+          🔄 Forzar sincronización
+        </button>
+      </div>
+      <span id="point-count" class="font-medium text-slate-400">0 visitas</span>
+    </div>
+
+  </div>
+
+  <script>
+    let allData = [];
+    const state = { mei: true, sami: true, other: false };
+
+    const svg = document.getElementById("chart");
+    const tooltip = document.getElementById("tooltip");
+    const rangeInfo = document.getElementById("range-info");
+    const diffInfo = document.getElementById("diff-info");
+    const pointCount = document.getElementById("point-count");
+    const lastSyncText = document.getElementById("last-sync-text");
+    const subtitle = document.getElementById("subtitle");
+    const btnSyncNow = document.getElementById("btn-sync-now");
+
+    const W = 580, H = 240;
+    const padL = 52, padR = 20, padT = 20, padB = 36;
+
+    async function loadData() {
+      try {
+        const res = await fetch('data.json?t=' + Date.now());
+        if (!res.ok) throw new Error("No se pudo cargar data.json");
+        allData = await res.json();
+        
+        lastSyncText.textContent = "Actualizado: " + new Date().toLocaleTimeString();
+        if (allData.length > 0) {
+          const firstDate = allData[0].dt.substring(0, 10);
+          const lastDate = allData[allData.length - 1].dt.substring(0, 10);
+          subtitle.textContent = `${firstDate} a ${lastDate} • ${allData.length} registros totales`;
+        }
+        renderChart();
+      } catch (err) {
+        console.error("Error al cargar data.json:", err);
+        rangeInfo.textContent = "Error cargando datos. Asegúrate de que el servidor esté activo.";
+      }
+    }
+
+    async function triggerManualSync() {
+      btnSyncNow.disabled = true;
+      btnSyncNow.textContent = "⏳ Sincronizando con Tuya...";
+      try {
+        const res = await fetch('/api/sync');
+        await loadData();
+      } catch (e) {
+        console.error(e);
+      } finally {
+        btnSyncNow.disabled = false;
+        btnSyncNow.textContent = "🔄 Forzar sincronización";
+      }
+    }
+
+    function getX(ts) {
+      if (allData.length < 2) return padL;
+      const tMin = allData[0].ts;
+      const tMax = allData[allData.length - 1].ts;
+      return padL + ((ts - tMin) / (tMax - tMin)) * (W - padL - padR);
+    }
+
+    function toggleCat(catKey) {
+      const nextActiveCount = (state.mei ? 1 : 0) + (state.sami ? 1 : 0) + (state.other ? 1 : 0) - (state[catKey] ? 1 : 0);
+      if (state[catKey] && nextActiveCount === 0) return;
+
+      state[catKey] = !state[catKey];
+      updateButtons();
+      renderChart();
+    }
+
+    function updateButtons() {
+      const btnMei = document.getElementById("toggle-mei");
+      const btnSami = document.getElementById("toggle-sami");
+      const btnOther = document.getElementById("toggle-other");
+
+      btnMei.className = state.mei 
+        ? "toggle-btn flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 text-white shadow-sm ring-2 ring-blue-500/40"
+        : "toggle-btn flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-900 text-slate-400 border border-slate-700 opacity-50";
+
+      btnSami.className = state.sami
+        ? "toggle-btn flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-orange-600 text-white shadow-sm ring-2 ring-orange-500/40"
+        : "toggle-btn flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-900 text-slate-400 border border-slate-700 opacity-50";
+
+      btnOther.className = state.other
+        ? "toggle-btn flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-600 text-white shadow-sm ring-2 ring-slate-500/40 opacity-100"
+        : "toggle-btn flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-900 text-slate-400 border border-slate-700 opacity-50";
+    }
+
+    function renderChart() {
+      if (!allData || allData.length === 0) return;
+      const visibleData = allData.filter(d => state[d.cat]);
+      pointCount.textContent = `${visibleData.length} / ${allData.length} visitas visibles`;
+
+      if (visibleData.length === 0) {
+        svg.innerHTML = '<text x="290" y="120" text-anchor="middle" fill="#94A3B8">Selecciona al menos una gata</text>';
+        return;
+      }
+
+      // Autoescala eje Y
+      let minVal = Math.min(...visibleData.map(d => d.w));
+      let maxVal = Math.max(...visibleData.map(d => d.w));
+
+      let span = maxVal - minVal;
+      if (span < 0.08) span = 0.25;
+
+      let yMin = Math.max(0, minVal - span * 0.16);
+      let yMax = maxVal + span * 0.16;
+
+      function getY(w) {
+        return H - padB - ((w - yMin) / (yMax - yMin)) * (H - padT - padB);
+      }
+
+      rangeInfo.textContent = `Escala autoajustada: ${yMin.toFixed(2)} kg - ${yMax.toFixed(2)} kg`;
+
+      const meiPts = allData.filter(d => d.cat === 'mei');
+      const samiPts = allData.filter(d => d.cat === 'sami');
+      const avgMei = meiPts.length ? (meiPts.reduce((a, b) => a + b.w, 0) / meiPts.length) : 0;
+      const avgSami = samiPts.length ? (samiPts.reduce((a, b) => a + b.w, 0) / samiPts.length) : 0;
+
+      if (state.mei && state.sami) {
+        const diff = avgMei - avgSami;
+        diffInfo.textContent = `Diferencia promedio: ${diff.toFixed(2)} kg (${Math.round(diff * 1000)} g)`;
+        diffInfo.className = "font-medium text-slate-200";
+      } else if (state.mei) {
+        diffInfo.textContent = `Media Mei: ${avgMei.toFixed(2)} kg (${meiPts.length} registros)`;
+        diffInfo.className = "font-medium text-blue-400";
+      } else if (state.sami) {
+        diffInfo.textContent = `Media Sami: ${avgSami.toFixed(2)} kg (${samiPts.length} registros)`;
+        diffInfo.className = "font-medium text-orange-400";
+      }
+
+      // Rejilla y Ticks Y
+      let gridHtml = '';
+      const numTicks = 5;
+      for (let i = 0; i < numTicks; i++) {
+        const tickVal = yMin + (i / (numTicks - 1)) * (yMax - yMin);
+        const y = getY(tickVal);
+        gridHtml += `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="#334155" stroke-dasharray="3,3" />`;
+        gridHtml += `<text x="${padL - 8}" y="${y + 4}" text-anchor="end" fill="#94A3B8" font-size="12" font-family="monospace">${tickVal.toFixed(2)}</text>`;
+      }
+
+      // Líneas de referencia
+      if (state.mei && avgMei >= yMin && avgMei <= yMax) {
+        const yM = getY(avgMei);
+        gridHtml += `<line x1="${padL}" y1="${yM}" x2="${W - padR}" y2="${yM}" stroke="#3B82F6" stroke-opacity="0.35" stroke-dasharray="4,4" />`;
+      }
+      if (state.sami && avgSami >= yMin && avgSami <= yMax) {
+        const yS = getY(avgSami);
+        gridHtml += `<line x1="${padL}" y1="${yS}" x2="${W - padR}" y2="${yS}" stroke="#EA580C" stroke-opacity="0.35" stroke-dasharray="4,4" />`;
+      }
+
+      // Conexiones
+      function createLine(catKey, color) {
+        if (!state[catKey]) return '';
+        const pts = allData.filter(d => d.cat === catKey);
+        if (pts.length < 2) return '';
+        const dStr = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${getX(p.ts).toFixed(1)} ${getY(p.w).toFixed(1)}`).join(' ');
+        return `<path d="${dStr}" fill="none" stroke="${color}" stroke-width="2.2" stroke-opacity="0.8" />`;
+      }
+
+      let paths = createLine('mei', '#3B82F6') + createLine('sami', '#EA580C');
+
+      // Puntos
+      let dots = '';
+      visibleData.forEach(p => {
+        const cx = getX(p.ts).toFixed(1);
+        const cy = getY(p.w).toFixed(1);
+        let col = '#94A3B8';
+        let r = 4.2;
+        if (p.cat === 'mei') { col = '#3B82F6'; r = 5; }
+        else if (p.cat === 'sami') { col = '#EA580C'; r = 5; }
+
+        dots += `<circle class="cat-dot" cx="${cx}" cy="${cy}" r="${r}" fill="${col}" stroke="#1E293B" stroke-width="1.8" data-id="${p.id}" />`;
+      });
+
+      // Eje X fechas (muestreo por día)
+      let xLabels = '';
+      const dayMap = {};
+      allData.forEach(item => {
+        const dayStr = item.dt.substring(0, 10);
+        if (!dayMap[dayStr]) dayMap[dayStr] = [];
+        dayMap[dayStr].push(item);
+      });
+
+      Object.entries(dayMap).forEach(([dayStr, pts]) => {
+        const midTs = pts[Math.floor(pts.length / 2)].ts;
+        const x = getX(midTs);
+        const parts = dayStr.split('-');
+        const shortLabel = `${parts[2]}/${parts[1]}`;
+        if (x >= padL && x <= W - padR) {
+          xLabels += `<text x="${x}" y="${H - 12}" text-anchor="middle" fill="#94A3B8" font-size="12">${shortLabel}</text>`;
+        }
+      });
+
+      svg.innerHTML = gridHtml + paths + dots + xLabels;
+    }
+
+    // Tooltip al pasar el ratón
+    svg.addEventListener("mousemove", (e) => {
+      const target = e.target;
+      if (target.classList.contains("cat-dot")) {
+        const id = parseInt(target.getAttribute("data-id"));
+        const item = allData.find(d => d.id === id);
+        if (!item) return;
+
+        const rect = svg.getBoundingClientRect();
+        const badgeColor = item.cat === 'mei' ? 'text-blue-400' : item.cat === 'sami' ? 'text-orange-400' : 'text-slate-400';
+
+        tooltip.innerHTML = `
+          <div class="font-bold ${badgeColor}">🐱 ${item.name}</div>
+          <div class="mt-0.5">Peso: <span class="font-bold text-white">${item.w.toFixed(2)} kg</span> (${Math.round(item.w * 1000)} g)</div>
+          <div class="text-slate-400 mt-0.5">${item.dt}</div>
+        `;
+        tooltip.style.left = (e.clientX - rect.left + 14) + "px";
+        tooltip.style.top = (e.clientY - rect.top - 38) + "px";
+        tooltip.classList.remove("hidden");
+      } else {
+        tooltip.classList.add("hidden");
+      }
+    });
+
+    svg.addEventListener("mouseleave", () => tooltip.classList.add("hidden"));
+
+    // Cargar datos al iniciar y refrescar cada 5 minutos
+    loadData();
+    setInterval(loadData, 5 * 60 * 1000);
+  </script>
+</body>
+</html>
