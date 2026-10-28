@@ -1,95 +1,288 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="h-full">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Control de Peso: Mei & Sami</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#020617">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Control de Peso y Usos: Mei & Sami</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    .cat-dot { cursor: pointer; }
-    .toggle-btn { transition: all 0.2s ease; cursor: pointer; user-select: none; }
+    body {
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .cat-card-btn { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; user-select: none; }
+    .cat-card-btn:active { transform: scale(0.98); }
+    .period-btn { transition: all 0.15s ease; cursor: pointer; user-select: none; }
+    .custom-scroll::-webkit-scrollbar { width: 5px; }
+    .custom-scroll::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); border-radius: 8px; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: rgba(71, 85, 105, 0.6); border-radius: 8px; }
   </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center p-3 sm:p-6 font-sans">
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-start p-2.5 sm:p-6 font-sans selection:bg-blue-500/30">
 
-  <div class="bg-slate-800 border border-slate-700/80 rounded-2xl p-4 sm:p-6 shadow-2xl w-full max-w-3xl space-y-4">
+  <div class="w-full max-w-3xl bg-slate-900 border border-slate-800/90 rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 shadow-2xl space-y-4 sm:space-y-5 my-1 sm:my-auto">
     
-    <!-- Encabezado y Filtros -->
-    <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-700">
-      <div>
-        <h1 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-          🐱 Control de Peso: Mei & Sami
-        </h1>
-        <p id="subtitle" class="text-xs text-slate-400">Arenero Inteligente • Sincronización automática</p>
+    <!-- Barra Superior -->
+    <div class="flex items-center justify-between gap-2 pb-3 border-b border-slate-800/80">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-800 border border-slate-700/70 flex items-center justify-center text-lg sm:text-xl shrink-0 shadow-inner">
+          🐱
+        </div>
+        <div class="truncate">
+          <h1 class="text-sm sm:text-lg font-bold text-white tracking-tight truncate">
+            Mei & Sami <span class="text-xs font-normal text-slate-400">• Arenero</span>
+          </h1>
+          <p id="date-range-badge" class="text-xs text-slate-400 truncate">Cargando histórico...</p>
+        </div>
       </div>
 
-      <!-- Botones de Filtrado -->
-      <div class="flex items-center gap-2">
-        <button id="toggle-mei" onclick="toggleCat('mei')" class="toggle-btn flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 text-white shadow-sm ring-2 ring-blue-500/40">
-          <span class="w-2.5 h-2.5 rounded-full bg-white inline-block"></span>
-          <span id="btn-mei-text">Mei (~4.60 kg)</span>
-        </button>
+      <button id="btn-sync-now" onclick="triggerManualSync()" title="Forzar sincronización con Tuya" class="shrink-0 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-200 text-xs font-medium border border-slate-700/70 transition-all flex items-center gap-1.5 shadow-sm cursor-pointer">
+        <span id="sync-icon" class="inline-block">🔄</span>
+        <span class="hidden sm:inline">Sincronizar</span>
+      </button>
+    </div>
 
-        <button id="toggle-sami" onclick="toggleCat('sami')" class="toggle-btn flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-orange-600 text-white shadow-sm ring-2 ring-orange-500/40">
-          <span class="w-2.5 h-2.5 rounded-full bg-white inline-block"></span>
-          <span id="btn-sami-text">Sami (~3.38 kg)</span>
-        </button>
+    <!-- Tarjetas de Gatas (Interactivas para activar/desactivar) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3.5">
+      
+      <!-- Tarjeta Mei -->
+      <div id="card-mei" onclick="toggleCat('mei')" class="cat-card-btn relative rounded-2xl p-3.5 bg-slate-800/80 border-2 border-blue-500/90 shadow-lg shadow-blue-500/5">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-blue-500 ring-4 ring-blue-500/20 inline-block"></span>
+            <span class="text-sm font-bold text-blue-400 uppercase tracking-wider">Mei</span>
+          </div>
+          <span id="badge-mei-status" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">Visible</span>
+        </div>
 
-        <button id="toggle-other" onclick="toggleCat('other')" class="toggle-btn flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-900 text-slate-400 border border-slate-700 opacity-60">
+        <div class="mt-2.5 flex items-baseline justify-between">
+          <div>
+            <div class="text-[11px] text-slate-400">Último peso:</div>
+            <div class="flex items-baseline gap-1">
+              <span id="val-mei-latest" class="text-2xl sm:text-3xl font-black text-white">--</span>
+              <span class="text-xs font-semibold text-slate-400">kg</span>
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="text-[11px] text-slate-400">Último uso:</div>
+            <div id="val-mei-last-time" class="text-xs font-semibold text-slate-200">--</div>
+          </div>
+        </div>
+
+        <div class="mt-2.5 pt-2 border-t border-slate-700/60 flex items-center justify-between text-xs text-slate-400">
+          <span id="val-mei-avg">Media periodo: -- kg</span>
+          <span id="val-mei-count" class="font-medium text-slate-300">-- visitas</span>
+        </div>
+      </div>
+
+      <!-- Tarjeta Sami -->
+      <div id="card-sami" onclick="toggleCat('sami')" class="cat-card-btn relative rounded-2xl p-3.5 bg-slate-800/80 border-2 border-orange-500/90 shadow-lg shadow-orange-500/5">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-orange-500 ring-4 ring-orange-500/20 inline-block"></span>
+            <span class="text-sm font-bold text-orange-400 uppercase tracking-wider">Sami</span>
+          </div>
+          <span id="badge-sami-status" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-500/30">Visible</span>
+        </div>
+
+        <div class="mt-2.5 flex items-baseline justify-between">
+          <div>
+            <div class="text-[11px] text-slate-400">Último peso:</div>
+            <div class="flex items-baseline gap-1">
+              <span id="val-sami-latest" class="text-2xl sm:text-3xl font-black text-white">--</span>
+              <span class="text-xs font-semibold text-slate-400">kg</span>
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="text-[11px] text-slate-400">Último uso:</div>
+            <div id="val-sami-last-time" class="text-xs font-semibold text-slate-200">--</div>
+          </div>
+        </div>
+
+        <div class="mt-2.5 pt-2 border-t border-slate-700/60 flex items-center justify-between text-xs text-slate-400">
+          <span id="val-sami-avg">Media periodo: -- kg</span>
+          <span id="val-sami-count" class="font-medium text-slate-300">-- visitas</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Barra de Controles: Selector de Tiempo + Filtro Parciales -->
+    <div class="flex flex-wrap items-center justify-between gap-2.5 px-3 py-2 rounded-xl bg-slate-950/70 border border-slate-800/80 text-xs">
+      <!-- Selector de Rango de Tiempo -->
+      <div class="flex items-center gap-1 overflow-x-auto max-w-full py-0.5">
+        <span class="text-slate-400 mr-1 hidden xs:inline">📅 Periodo:</span>
+        <button onclick="setPeriod(1)" id="period-1" class="period-btn px-2.5 py-1 rounded-lg font-medium text-slate-400 hover:text-slate-200">24h</button>
+        <button onclick="setPeriod(3)" id="period-3" class="period-btn px-2.5 py-1 rounded-lg font-medium text-slate-400 hover:text-slate-200">3d</button>
+        <button onclick="setPeriod(7)" id="period-7" class="period-btn px-2.5 py-1 rounded-lg font-medium text-slate-400 hover:text-slate-200">7d</button>
+        <button onclick="setPeriod(14)" id="period-14" class="period-btn px-2.5 py-1 rounded-lg font-medium text-slate-400 hover:text-slate-200">14d</button>
+        <button onclick="setPeriod(30)" id="period-30" class="period-btn px-2.5 py-1 rounded-lg font-medium text-slate-400 hover:text-slate-200">30d</button>
+        <button onclick="setPeriod(90)" id="period-90" class="period-btn px-2.5 py-1 rounded-lg font-medium text-slate-400 hover:text-slate-200">90d</button>
+        <button onclick="setPeriod(0)" id="period-0" class="period-btn px-2.5 py-1 rounded-lg font-bold bg-blue-600 text-white shadow-sm">Todo</button>
+      </div>
+
+      <div class="flex items-center gap-2 ml-auto">
+        <div id="diff-info" class="font-medium text-slate-300 hidden md:block mr-2">
+          ⚖️ Dif: <span class="text-white font-bold">-- kg</span>
+        </div>
+
+        <button id="toggle-other" onclick="toggleCat('other')" class="px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-800 text-slate-400 border border-slate-700/60 opacity-60 transition-all flex items-center gap-1.5 cursor-pointer shrink-0">
           <span class="w-2 h-2 rounded-full bg-slate-400 inline-block"></span>
-          Parciales
+          <span>Parciales (<span id="count-other">0</span>)</span>
         </button>
       </div>
     </div>
 
-    <!-- Barra de Estado / Autoescala -->
-    <div id="stat-banner" class="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2 rounded-xl bg-slate-900/80 border border-slate-700/60 text-xs text-slate-300">
-      <span id="range-info">Cargando datos...</span>
-      <span id="diff-info" class="font-medium text-slate-200"></span>
-    </div>
-
-    <!-- Contenedor del Gráfico SVG -->
-    <div class="relative bg-slate-900 border border-slate-700/80 rounded-xl p-3 sm:p-4">
-      <svg id="chart" viewBox="0 0 580 240" class="w-full h-auto overflow-visible select-none cursor-crosshair"></svg>
-
-      <!-- Tooltip Flotante -->
-      <div id="tooltip" class="hidden absolute pointer-events-none bg-slate-800 text-white border border-slate-600 shadow-2xl rounded-lg px-3 py-2 text-xs z-20 transition-opacity"></div>
-    </div>
-
-    <!-- Pie de Información y Estado -->
-    <div class="flex flex-wrap justify-between items-center text-xs text-slate-400 pt-1 gap-2">
-      <div class="flex items-center gap-3">
-        <span class="flex items-center gap-1.5">
-          <span id="pulse-dot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block"></span>
-          <span id="last-sync-text">Sincronizado</span>
-        </span>
-        <button id="btn-sync-now" onclick="triggerManualSync()" class="px-2 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 text-[11px] transition-colors flex items-center gap-1 cursor-pointer">
-          🔄 Forzar sincronización
-        </button>
+    <!-- Contenedor del Gráfico con Inspector Integrado -->
+    <div class="space-y-2">
+      <!-- Inspector Dinámico al Tocar / Pasar el Ratón -->
+      <div id="inspector-bar" class="min-h-[38px] flex items-center justify-between px-3.5 py-2 rounded-xl bg-slate-800/60 border border-slate-700/60 text-xs transition-colors">
+        <div id="insp-default" class="text-slate-400 flex items-center gap-1.5 w-full justify-between">
+          <span class="truncate">💡 Toca o desliza sobre la gráfica para inspeccionar cada visita</span>
+          <span id="point-count" class="text-slate-400 font-medium shrink-0 ml-2">-- visitas</span>
+        </div>
+        <div id="insp-active" class="hidden flex items-center justify-between w-full">
+          <div class="flex items-center gap-2 min-w-0">
+            <span id="insp-cat-dot" class="w-2.5 h-2.5 rounded-full bg-blue-400 shrink-0"></span>
+            <span id="insp-cat-name" class="font-bold text-white shrink-0">Mei</span>
+            <span id="insp-dt" class="text-slate-300 font-medium truncate">--</span>
+            <span id="insp-ago" class="text-slate-400 hidden sm:inline truncate">--</span>
+          </div>
+          <div class="flex items-baseline gap-1 font-bold text-white shrink-0 ml-2">
+            <span id="insp-weight" class="text-sm sm:text-base font-black text-blue-300">--</span>
+            <span class="text-xs text-slate-400">kg</span>
+            <span id="insp-g" class="text-xs text-slate-400 font-normal">(--g)</span>
+          </div>
+        </div>
       </div>
-      <span id="point-count" class="font-medium text-slate-400">0 visitas</span>
+
+      <!-- Lienzo SVG Responsivo -->
+      <div id="chart-wrapper" class="relative bg-slate-950 border border-slate-800/90 rounded-2xl p-2 sm:p-3.5 select-none overflow-hidden">
+        <svg id="chart" class="w-full h-56 sm:h-68 block overflow-visible cursor-crosshair"></svg>
+      </div>
+    </div>
+
+    <!-- Sección de Últimos Usos del Arenero -->
+    <div class="pt-2 border-t border-slate-800/80 space-y-3">
+      <div class="flex items-center justify-between">
+        <h2 class="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+          🕒 Últimos usos del arenero
+        </h2>
+        <span id="history-subtitle" class="text-xs text-slate-400">Mostrando más recientes</span>
+      </div>
+
+      <!-- Lista de Eventos Recientes -->
+      <div id="history-list" class="space-y-1.5 max-h-80 overflow-y-auto custom-scroll pr-1">
+        <!-- Filas generadas dinámicamente -->
+      </div>
+
+      <!-- Botón Mostrar Más / Menos -->
+      <button id="btn-toggle-history" onclick="toggleHistoryLimit()" class="w-full py-2 rounded-xl bg-slate-800/60 hover:bg-slate-800 text-slate-300 text-xs font-semibold border border-slate-700/50 transition-colors cursor-pointer">
+        Ver historial completo
+      </button>
+    </div>
+
+    <!-- Pie de Estado -->
+    <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 pt-1 border-t border-slate-800/50">
+      <div class="flex items-center gap-1.5">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span id="last-sync-text">Sincronizado con Tuya Cloud</span>
+      </div>
+      <span id="scale-info">Auto-escala activa</span>
     </div>
 
   </div>
 
   <script>
     let allData = [];
-    const state = { mei: true, sami: true, other: false };
+    const state = { mei: true, sami: true, other: false, periodDays: 0 }; // 0 = Todo
+    let showAllHistory = false;
+    const INITIAL_HISTORY_LIMIT = 8;
 
     const svg = document.getElementById("chart");
-    const tooltip = document.getElementById("tooltip");
-    const rangeInfo = document.getElementById("range-info");
+    const chartWrapper = document.getElementById("chart-wrapper");
+    const inspDefault = document.getElementById("insp-default");
+    const inspActive = document.getElementById("insp-active");
+    const inspectorBar = document.getElementById("inspector-bar");
+    const inspCatDot = document.getElementById("insp-cat-dot");
+    const inspCatName = document.getElementById("insp-cat-name");
+    const inspDt = document.getElementById("insp-dt");
+    const inspAgo = document.getElementById("insp-ago");
+    const inspWeight = document.getElementById("insp-weight");
+    const inspG = document.getElementById("insp-g");
     const diffInfo = document.getElementById("diff-info");
+    const scaleInfo = document.getElementById("scale-info");
     const pointCount = document.getElementById("point-count");
     const lastSyncText = document.getElementById("last-sync-text");
-    const subtitle = document.getElementById("subtitle");
+    const dateRangeBadge = document.getElementById("date-range-badge");
     const btnSyncNow = document.getElementById("btn-sync-now");
+    const syncIcon = document.getElementById("sync-icon");
+    const historyList = document.getElementById("history-list");
+    const btnToggleHistory = document.getElementById("btn-toggle-history");
+    const historySubtitle = document.getElementById("history-subtitle");
 
-    const W = 580, H = 240;
-    const padL = 52, padR = 20, padT = 20, padB = 36;
-
-    // Cache computed positions of rendered points for instant hover detection
     let renderedPoints = [];
+
+    function getPeriodFilteredData() {
+      if (!allData || allData.length === 0) return [];
+      if (state.periodDays === 0) return allData;
+      const maxTs = allData[allData.length - 1].ts;
+      const cutoffTs = maxTs - (state.periodDays * 86400);
+      return allData.filter(d => d.ts >= cutoffTs);
+    }
+
+    function setPeriod(days) {
+      state.periodDays = days;
+      [0, 1, 3, 7, 14, 30, 90].forEach(d => {
+        const btn = document.getElementById(`period-${d}`);
+        if (!btn) return;
+        if (d === days) {
+          btn.className = "period-btn px-2.5 py-1 rounded-lg font-bold bg-blue-600 text-white shadow-sm";
+        } else {
+          btn.className = "period-btn px-2.5 py-1 rounded-lg font-medium text-slate-400 hover:text-slate-200";
+        }
+      });
+      updateCardMetrics();
+      renderChart();
+      renderHistoryList();
+      hideInspector();
+    }
+
+    function formatRelativeTime(dtStr) {
+      const dt = new Date(dtStr.replace(" ", "T"));
+      const now = new Date();
+      const diffMs = now - dt;
+      const diffMin = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMin / 60);
+
+      const timePart = dtStr.substring(11, 16);
+      const dayPart = `${dtStr.substring(8, 10)}/${dtStr.substring(5, 7)}`;
+
+      const isToday = dt.toDateString() === now.toDateString();
+      const yesterday = new Date(now);
+      yesterday.setDate(now.getDate() - 1);
+      const isYesterday = dt.toDateString() === yesterday.toDateString();
+
+      if (diffMin >= 0 && diffMin < 60) {
+        return `Hace ${diffMin <= 1 ? '1 min' : diffMin + ' min'} (${timePart})`;
+      } else if (isToday) {
+        return `Hoy ${timePart} (hace ${diffHours}h)`;
+      } else if (isYesterday) {
+        return `Ayer a las ${timePart}`;
+      } else {
+        return `${dayPart} a las ${timePart}`;
+      }
+    }
+
+    function formatShortDate(dtStr) {
+      return `${dtStr.substring(8, 10)}/${dtStr.substring(5, 7)} ${dtStr.substring(11, 16)}`;
+    }
 
     async function loadData() {
       try {
@@ -97,38 +290,82 @@
         if (!res.ok) throw new Error("No se pudo cargar data.json");
         allData = await res.json();
         
-        lastSyncText.textContent = "Actualizado: " + new Date().toLocaleTimeString();
-        if (allData.length > 0) {
-          const firstDate = allData[0].dt.substring(0, 10);
-          const lastDate = allData[allData.length - 1].dt.substring(0, 10);
-          subtitle.textContent = `${firstDate} a ${lastDate} • ${allData.length} registros totales`;
-        }
+        lastSyncText.textContent = "Actualizado: " + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        updateCardMetrics();
         renderChart();
+        renderHistoryList();
       } catch (err) {
         console.error("Error al cargar data.json:", err);
-        rangeInfo.textContent = "Error cargando datos. Asegúrate de que el servidor esté activo.";
+      }
+    }
+
+    function updateCardMetrics() {
+      const periodData = getPeriodFilteredData();
+      if (!periodData || periodData.length === 0) return;
+
+      const firstDate = periodData[0].dt.substring(0, 10);
+      const lastDate = periodData[periodData.length - 1].dt.substring(0, 10);
+      const fParts = firstDate.split('-');
+      const lParts = lastDate.split('-');
+      dateRangeBadge.textContent = `${fParts[2]}/${fParts[1]} al ${lParts[2]}/${lParts[1]} • ${periodData.length} eventos en periodo`;
+
+      const meiPts = periodData.filter(d => d.cat === 'mei');
+      const samiPts = periodData.filter(d => d.cat === 'sami');
+      const otherPts = periodData.filter(d => d.cat === 'other');
+
+      const allMei = allData.filter(d => d.cat === 'mei');
+      const allSami = allData.filter(d => d.cat === 'sami');
+
+      document.getElementById("count-other").textContent = otherPts.length;
+
+      if (allMei.length > 0) {
+        const latest = allMei[allMei.length - 1];
+        document.getElementById("val-mei-latest").textContent = latest.w.toFixed(2);
+        document.getElementById("val-mei-last-time").textContent = formatRelativeTime(latest.dt);
+      }
+      if (meiPts.length > 0) {
+        const avg = meiPts.reduce((a, b) => a + b.w, 0) / meiPts.length;
+        document.getElementById("val-mei-avg").textContent = `Media: ${avg.toFixed(2)} kg`;
+        document.getElementById("val-mei-count").textContent = `${meiPts.length} visitas`;
+      } else {
+        document.getElementById("val-mei-avg").textContent = `Media: -- kg`;
+        document.getElementById("val-mei-count").textContent = `0 visitas`;
+      }
+
+      if (allSami.length > 0) {
+        const latest = allSami[allSami.length - 1];
+        document.getElementById("val-sami-latest").textContent = latest.w.toFixed(2);
+        document.getElementById("val-sami-last-time").textContent = formatRelativeTime(latest.dt);
+      }
+      if (samiPts.length > 0) {
+        const avg = samiPts.reduce((a, b) => a + b.w, 0) / samiPts.length;
+        document.getElementById("val-sami-avg").textContent = `Media: ${avg.toFixed(2)} kg`;
+        document.getElementById("val-sami-count").textContent = `${samiPts.length} visitas`;
+      } else {
+        document.getElementById("val-sami-avg").textContent = `Media: -- kg`;
+        document.getElementById("val-sami-count").textContent = `0 visitas`;
+      }
+
+      if (meiPts.length > 0 && samiPts.length > 0) {
+        const avgM = meiPts.reduce((a, b) => a + b.w, 0) / meiPts.length;
+        const avgS = samiPts.reduce((a, b) => a + b.w, 0) / samiPts.length;
+        const diff = avgM - avgS;
+        diffInfo.innerHTML = `⚖️ Dif: <span class="text-white font-bold">${diff.toFixed(2)} kg</span>`;
       }
     }
 
     async function triggerManualSync() {
       btnSyncNow.disabled = true;
-      btnSyncNow.textContent = "⏳ Sincronizando con Tuya...";
+      syncIcon.classList.add("animate-spin");
       try {
-        const res = await fetch('/api/sync');
+        await fetch('/api/sync');
         await loadData();
       } catch (e) {
         console.error(e);
       } finally {
+        syncIcon.classList.remove("animate-spin");
         btnSyncNow.disabled = false;
-        btnSyncNow.textContent = "🔄 Forzar sincronización";
       }
-    }
-
-    function getX(ts) {
-      if (allData.length < 2) return padL;
-      const tMin = allData[0].ts;
-      const tMax = allData[allData.length - 1].ts;
-      return padL + ((ts - tMin) / (tMax - tMin)) * (W - padL - padR);
     }
 
     function toggleCat(catKey) {
@@ -138,103 +375,142 @@
       state[catKey] = !state[catKey];
       updateButtons();
       renderChart();
-      hideTooltip();
+      renderHistoryList();
+      hideInspector();
     }
 
     function updateButtons() {
-      const btnMei = document.getElementById("toggle-mei");
-      const btnSami = document.getElementById("toggle-sami");
+      const cardMei = document.getElementById("card-mei");
+      const cardSami = document.getElementById("card-sami");
       const btnOther = document.getElementById("toggle-other");
+      const badgeMei = document.getElementById("badge-mei-status");
+      const badgeSami = document.getElementById("badge-sami-status");
 
-      btnMei.className = state.mei 
-        ? "toggle-btn flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 text-white shadow-sm ring-2 ring-blue-500/40"
-        : "toggle-btn flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-900 text-slate-400 border border-slate-700 opacity-50";
+      if (state.mei) {
+        cardMei.className = "cat-card-btn relative rounded-2xl p-3.5 bg-slate-800/80 border-2 border-blue-500/90 shadow-lg shadow-blue-500/5 opacity-100";
+        badgeMei.textContent = "Visible";
+        badgeMei.className = "text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30";
+      } else {
+        cardMei.className = "cat-card-btn relative rounded-2xl p-3.5 bg-slate-900/60 border-2 border-slate-800 opacity-45";
+        badgeMei.textContent = "Oculta";
+        badgeMei.className = "text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-500 border border-slate-700";
+      }
 
-      btnSami.className = state.sami
-        ? "toggle-btn flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-orange-600 text-white shadow-sm ring-2 ring-orange-500/40"
-        : "toggle-btn flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-900 text-slate-400 border border-slate-700 opacity-50";
+      if (state.sami) {
+        cardSami.className = "cat-card-btn relative rounded-2xl p-3.5 bg-slate-800/80 border-2 border-orange-500/90 shadow-lg shadow-orange-500/5 opacity-100";
+        badgeSami.textContent = "Visible";
+        badgeSami.className = "text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-500/30";
+      } else {
+        cardSami.className = "cat-card-btn relative rounded-2xl p-3.5 bg-slate-900/60 border-2 border-slate-800 opacity-45";
+        badgeSami.textContent = "Oculta";
+        badgeSami.className = "text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-500 border border-slate-700";
+      }
 
-      btnOther.className = state.other
-        ? "toggle-btn flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-600 text-white shadow-sm ring-2 ring-slate-500/40 opacity-100"
-        : "toggle-btn flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-900 text-slate-400 border border-slate-700 opacity-50";
+      if (state.other) {
+        btnOther.className = "px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-700 text-slate-100 border border-slate-500 opacity-100 cursor-pointer flex items-center gap-1.5 shrink-0";
+      } else {
+        btnOther.className = "px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-800 text-slate-400 border border-slate-700/60 opacity-60 cursor-pointer flex items-center gap-1.5 shrink-0";
+      }
     }
 
     function renderChart() {
-      if (!allData || allData.length === 0) return;
-      const visibleData = allData.filter(d => state[d.cat]);
-      pointCount.textContent = `${visibleData.length} / ${allData.length} visitas visibles`;
+      const periodData = getPeriodFilteredData();
+      if (!periodData || periodData.length === 0) return;
+
+      const rect = chartWrapper.getBoundingClientRect();
+      const W = Math.max(260, Math.floor(rect.width - 16));
+      const H = Math.max(200, Math.floor(svg.clientHeight || (W < 450 ? 210 : 260)));
+
+      svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+
+      const isMobile = W < 460;
+      const padL = isMobile ? 42 : 50;
+      const padR = isMobile ? 14 : 22;
+      const padT = 20;
+      const padB = isMobile ? 28 : 32;
+
+      const visibleData = periodData.filter(d => state[d.cat]);
+      pointCount.textContent = `${visibleData.length} visitas`;
 
       if (visibleData.length === 0) {
-        svg.innerHTML = '<text x="290" y="120" text-anchor="middle" fill="#94A3B8">Selecciona al menos una gata</text>';
+        svg.innerHTML = `<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="#64748B" font-size="13">Sin registros para este filtro</text>`;
         renderedPoints = [];
         return;
       }
 
-      // Autoescala eje Y
+      const tMin = visibleData[0].ts;
+      const tMax = visibleData[visibleData.length - 1].ts;
+
+      function getX(ts) {
+        if (tMax === tMin) return (W + padL - padR) / 2;
+        return padL + ((ts - tMin) / (tMax - tMin)) * (W - padL - padR);
+      }
+
+      // Auto-escala Y dinámica según las gatas activas en el periodo
       let minVal = Math.min(...visibleData.map(d => d.w));
       let maxVal = Math.max(...visibleData.map(d => d.w));
-
       let span = maxVal - minVal;
       if (span < 0.08) span = 0.25;
 
-      let yMin = Math.max(0, minVal - span * 0.16);
-      let yMax = maxVal + span * 0.16;
+      let yMin = Math.max(0, minVal - span * 0.18);
+      let yMax = maxVal + span * 0.18;
+
+      scaleInfo.textContent = `Escala Y: ${yMin.toFixed(2)} - ${yMax.toFixed(2)} kg`;
 
       function getY(w) {
         return H - padB - ((w - yMin) / (yMax - yMin)) * (H - padT - padB);
       }
 
-      rangeInfo.textContent = `Escala autoajustada: ${yMin.toFixed(2)} kg - ${yMax.toFixed(2)} kg`;
-
-      const meiPts = allData.filter(d => d.cat === 'mei');
-      const samiPts = allData.filter(d => d.cat === 'sami');
-      const avgMei = meiPts.length ? (meiPts.reduce((a, b) => a + b.w, 0) / meiPts.length) : 0;
-      const avgSami = samiPts.length ? (samiPts.reduce((a, b) => a + b.w, 0) / samiPts.length) : 0;
-
-      if (state.mei && state.sami) {
-        const diff = avgMei - avgSami;
-        diffInfo.textContent = `Diferencia promedio: ${diff.toFixed(2)} kg (${Math.round(diff * 1000)} g)`;
-        diffInfo.className = "font-medium text-slate-200";
-      } else if (state.mei) {
-        diffInfo.textContent = `Media Mei: ${avgMei.toFixed(2)} kg (${meiPts.length} registros)`;
-        diffInfo.className = "font-medium text-blue-400";
-      } else if (state.sami) {
-        diffInfo.textContent = `Media Sami: ${avgSami.toFixed(2)} kg (${samiPts.length} registros)`;
-        diffInfo.className = "font-medium text-orange-400";
-      }
-
-      // Rejilla y Ticks Y
+      // 4 o 5 Ticks en Y
       let gridHtml = '';
-      const numTicks = 5;
+      const numTicks = isMobile ? 4 : 5;
       for (let i = 0; i < numTicks; i++) {
         const tickVal = yMin + (i / (numTicks - 1)) * (yMax - yMin);
         const y = getY(tickVal);
-        gridHtml += `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="#334155" stroke-dasharray="3,3" />`;
-        gridHtml += `<text x="${padL - 8}" y="${y + 4}" text-anchor="end" fill="#94A3B8" font-size="12" font-family="monospace">${tickVal.toFixed(2)}</text>`;
+        gridHtml += `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="#1E293B" stroke-dasharray="3,3" />`;
+        gridHtml += `<text x="${padL - 6}" y="${y + 4}" text-anchor="end" fill="#64748B" font-size="12" font-family="monospace">${tickVal.toFixed(2)}</text>`;
       }
 
-      // Líneas de referencia
-      if (state.mei && avgMei >= yMin && avgMei <= yMax) {
-        const yM = getY(avgMei);
-        gridHtml += `<line x1="${padL}" y1="${yM}" x2="${W - padR}" y2="${yM}" stroke="#3B82F6" stroke-opacity="0.35" stroke-dasharray="4,4" />`;
-      }
-      if (state.sami && avgSami >= yMin && avgSami <= yMax) {
-        const yS = getY(avgSami);
-        gridHtml += `<line x1="${padL}" y1="${yS}" x2="${W - padR}" y2="${yS}" stroke="#EA580C" stroke-opacity="0.35" stroke-dasharray="4,4" />`;
+      // Líneas de Peso Medio en la propia gráfica con etiqueta visible
+      const meiPts = periodData.filter(d => d.cat === 'mei');
+      const samiPts = periodData.filter(d => d.cat === 'sami');
+
+      if (state.mei && meiPts.length > 0) {
+        const avgM = meiPts.reduce((a, b) => a + b.w, 0) / meiPts.length;
+        if (avgM >= yMin && avgM <= yMax) {
+          const yM = getY(avgM);
+          gridHtml += `<line x1="${padL}" y1="${yM}" x2="${W - padR}" y2="${yM}" stroke="#3B82F6" stroke-opacity="0.5" stroke-width="1.5" stroke-dasharray="5,4" />`;
+          gridHtml += `
+            <rect x="${padL + 6}" y="${yM - 17}" width="112" height="15" rx="4" fill="#0F172A" fill-opacity="0.85" />
+            <text x="${padL + 10}" y="${yM - 6}" fill="#60A5FA" font-size="11" font-weight="bold">Media Mei: ${avgM.toFixed(2)} kg</text>
+          `;
+        }
       }
 
-      // Conexiones
+      if (state.sami && samiPts.length > 0) {
+        const avgS = samiPts.reduce((a, b) => a + b.w, 0) / samiPts.length;
+        if (avgS >= yMin && avgS <= yMax) {
+          const yS = getY(avgS);
+          gridHtml += `<line x1="${padL}" y1="${yS}" x2="${W - padR}" y2="${yS}" stroke="#EA580C" stroke-opacity="0.5" stroke-width="1.5" stroke-dasharray="5,4" />`;
+          gridHtml += `
+            <rect x="${padL + 6}" y="${yS - 17}" width="118" height="15" rx="4" fill="#0F172A" fill-opacity="0.85" />
+            <text x="${padL + 10}" y="${yS - 6}" fill="#FB923C" font-size="11" font-weight="bold">Media Sami: ${avgS.toFixed(2)} kg</text>
+          `;
+        }
+      }
+
+      // Curvas
       function createLine(catKey, color) {
         if (!state[catKey]) return '';
-        const pts = allData.filter(d => d.cat === catKey);
+        const pts = periodData.filter(d => d.cat === catKey);
         if (pts.length < 2) return '';
         const dStr = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${getX(p.ts).toFixed(1)} ${getY(p.w).toFixed(1)}`).join(' ');
-        return `<path d="${dStr}" fill="none" stroke="${color}" stroke-width="2.2" stroke-opacity="0.8" />`;
+        return `<path d="${dStr}" fill="none" stroke="${color}" stroke-width="${isMobile ? '2' : '2.4'}" stroke-opacity="0.85" />`;
       }
 
       let paths = createLine('mei', '#3B82F6') + createLine('sami', '#EA580C');
 
-      // Puntos estáticos (sin scale transform para evitar saltos o parpadeos)
+      // Puntos
       let dots = '';
       renderedPoints = [];
 
@@ -242,44 +518,42 @@
         const cx = parseFloat(getX(p.ts).toFixed(1));
         const cy = parseFloat(getY(p.w).toFixed(1));
         let col = '#94A3B8';
-        let r = 4;
-        if (p.cat === 'mei') { col = '#3B82F6'; r = 4.8; }
-        else if (p.cat === 'sami') { col = '#EA580C'; r = 4.8; }
+        let r = isMobile ? 3.8 : 4.6;
+        if (p.cat === 'mei') { col = '#3B82F6'; r = isMobile ? 4.2 : 5; }
+        else if (p.cat === 'sami') { col = '#EA580C'; r = isMobile ? 4.2 : 5; }
 
-        renderedPoints.push({
-          item: p,
-          cx: cx,
-          cy: cy,
-          color: col
-        });
-
-        dots += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${col}" stroke="#1E293B" stroke-width="1.8" />`;
+        renderedPoints.push({ item: p, cx, cy, color: col });
+        dots += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${col}" stroke="#0F172A" stroke-width="1.5" />`;
       });
 
-      // Eje X fechas (muestreo por día)
+      // Etiquetas X evitando solapamientos
       let xLabels = '';
       const dayMap = {};
-      allData.forEach(item => {
+      visibleData.forEach(item => {
         const dayStr = item.dt.substring(0, 10);
         if (!dayMap[dayStr]) dayMap[dayStr] = [];
         dayMap[dayStr].push(item);
       });
 
-      Object.entries(dayMap).forEach(([dayStr, pts]) => {
+      const dayEntries = Object.entries(dayMap);
+      let lastLabelX = -100;
+      const minLabelSpacing = isMobile ? 44 : 52;
+
+      dayEntries.forEach(([dayStr, pts]) => {
         const midTs = pts[Math.floor(pts.length / 2)].ts;
         const x = getX(midTs);
-        const parts = dayStr.split('-');
-        const shortLabel = `${parts[2]}/${parts[1]}`;
-        if (x >= padL && x <= W - padR) {
-          xLabels += `<text x="${x}" y="${H - 12}" text-anchor="middle" fill="#94A3B8" font-size="12">${shortLabel}</text>`;
+        if (x >= padL && x <= W - padR && (x - lastLabelX) >= minLabelSpacing) {
+          const parts = dayStr.split('-');
+          const shortLabel = `${parts[2]}/${parts[1]}`;
+          xLabels += `<text x="${x}" y="${H - 8}" text-anchor="middle" fill="#64748B" font-size="12">${shortLabel}</text>`;
+          lastLabelX = x;
         }
       });
 
-      // Elementos interactivos dinámicos: guía vertical y punto resaltado activo
       const interactiveGroup = `
         <g id="hover-group" style="display: none;">
-          <line id="hover-line" x1="0" y1="${padT}" x2="0" y2="${H - padB}" stroke="#64748B" stroke-opacity="0.4" stroke-dasharray="3,3" stroke-width="1" />
-          <circle id="hover-halo" cx="0" cy="0" r="10" fill="none" stroke="#FFFFFF" stroke-opacity="0.3" stroke-width="3" />
+          <line id="hover-line" x1="0" y1="${padT}" x2="0" y2="${H - padB}" stroke="#94A3B8" stroke-opacity="0.45" stroke-dasharray="3,3" stroke-width="1.2" />
+          <circle id="hover-halo" cx="0" cy="0" r="10" fill="none" stroke="#FFFFFF" stroke-opacity="0.35" stroke-width="2.5" />
           <circle id="hover-dot" cx="0" cy="0" r="6" fill="#3B82F6" stroke="#FFFFFF" stroke-width="2" />
         </g>
       `;
@@ -287,25 +561,88 @@
       svg.innerHTML = gridHtml + paths + dots + xLabels + interactiveGroup;
     }
 
-    // Manejo de interacción suave y sin parpadeos por proximidad
-    function handlePointerMove(e) {
+    // Renderizar lista de últimos usos del arenero
+    function renderHistoryList() {
+      const periodData = getPeriodFilteredData();
+      if (!periodData || periodData.length === 0) return;
+
+      const visibleReversed = periodData.filter(d => state[d.cat]).slice().reverse();
+      const totalVisible = visibleReversed.length;
+      const itemsToShow = showAllHistory ? visibleReversed : visibleReversed.slice(0, INITIAL_HISTORY_LIMIT);
+
+      historySubtitle.textContent = showAllHistory 
+        ? `Mostrando todos (${totalVisible})` 
+        : `Últimos ${itemsToShow.length} de ${totalVisible} usos`;
+
+      if (totalVisible <= INITIAL_HISTORY_LIMIT) {
+        btnToggleHistory.classList.add("hidden");
+      } else {
+        btnToggleHistory.classList.remove("hidden");
+        btnToggleHistory.textContent = showAllHistory 
+          ? "🔼 Mostrar solo los más recientes" 
+          : `🔽 Ver los ${totalVisible} registros del periodo`;
+      }
+
+      let html = '';
+      itemsToShow.forEach((item) => {
+        let badgeBg = "bg-slate-800 text-slate-300 border-slate-700";
+        let dotColor = "bg-slate-400";
+        let weightColor = "text-slate-200";
+
+        if (item.cat === 'mei') {
+          badgeBg = "bg-blue-500/15 text-blue-300 border-blue-500/30";
+          dotColor = "bg-blue-500";
+          weightColor = "text-blue-400";
+        } else if (item.cat === 'sami') {
+          badgeBg = "bg-orange-500/15 text-orange-300 border-orange-500/30";
+          dotColor = "bg-orange-500";
+          weightColor = "text-orange-400";
+        }
+
+        const relTime = formatRelativeTime(item.dt);
+
+        html += `
+          <div class="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-slate-950/60 hover:bg-slate-800/70 border border-slate-800/80 transition-colors">
+            <div class="flex items-center gap-3 min-w-0">
+              <span class="px-2.5 py-1 rounded-lg text-xs font-bold border ${badgeBg} flex items-center gap-1.5 shrink-0">
+                <span class="w-2 h-2 rounded-full ${dotColor}"></span>
+                ${item.name}
+              </span>
+              <div class="truncate">
+                <div class="text-xs font-semibold text-slate-200 truncate">${relTime}</div>
+                <div class="text-[11px] text-slate-500 font-mono">${item.dt}</div>
+              </div>
+            </div>
+            <div class="text-right shrink-0 ml-2">
+              <div class="text-sm sm:text-base font-black ${weightColor}">${item.w.toFixed(2)} <span class="text-xs font-normal text-slate-400">kg</span></div>
+              <div class="text-[11px] text-slate-500">${Math.round(item.w * 1000)} g</div>
+            </div>
+          </div>
+        `;
+      });
+
+      historyList.innerHTML = html;
+    }
+
+    function toggleHistoryLimit() {
+      showAllHistory = !showAllHistory;
+      renderHistoryList();
+    }
+
+    // Interacción con el gráfico
+    function handlePointer(clientX, clientY) {
       if (!renderedPoints || renderedPoints.length === 0) return;
 
       const rect = svg.getBoundingClientRect();
-      // Escalar coordenadas del cliente al viewBox del SVG
-      const scaleX = W / rect.width;
-      const scaleY = H / rect.height;
-      const mouseSvgX = (e.clientX - rect.left) * scaleX;
-      const mouseSvgY = (e.clientY - rect.top) * scaleY;
+      const mouseSvgX = clientX - rect.left;
+      const mouseSvgY = clientY - rect.top;
 
-      // Buscar el punto más cercano (distancia euclídea con ponderación horizontal)
       let closest = null;
       let minDistance = Infinity;
 
       for (const pt of renderedPoints) {
         const dx = (pt.cx - mouseSvgX);
         const dy = (pt.cy - mouseSvgY);
-        // Damos prioridad a cercanía horizontal pero con límite
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < minDistance) {
           minDistance = dist;
@@ -313,15 +650,14 @@
         }
       }
 
-      // Radio de activación (45px en espacio SVG)
-      if (closest && minDistance < 45) {
-        showHover(closest, rect);
+      if (closest && minDistance < 65) {
+        showInspector(closest);
       } else {
-        hideTooltip();
+        hideInspector();
       }
     }
 
-    function showHover(pt, rect) {
+    function showInspector(pt) {
       const hoverGroup = document.getElementById("hover-group");
       const hoverLine = document.getElementById("hover-line");
       const hoverHalo = document.getElementById("hover-halo");
@@ -330,56 +666,55 @@
       if (hoverGroup && hoverLine && hoverDot) {
         hoverLine.setAttribute("x1", pt.cx);
         hoverLine.setAttribute("x2", pt.cx);
-
         hoverHalo.setAttribute("cx", pt.cx);
         hoverHalo.setAttribute("cy", pt.cy);
-
         hoverDot.setAttribute("cx", pt.cx);
         hoverDot.setAttribute("cy", pt.cy);
         hoverDot.setAttribute("fill", pt.color);
-
         hoverGroup.style.display = "block";
       }
 
-      // Posicionar Tooltip relativo al contenedor SVG
-      const badgeColor = pt.item.cat === 'mei' ? 'text-blue-400' : pt.item.cat === 'sami' ? 'text-orange-400' : 'text-slate-400';
-      tooltip.innerHTML = `
-        <div class="font-bold ${badgeColor}">🐱 ${pt.item.name}</div>
-        <div class="mt-0.5">Peso: <span class="font-bold text-white">${pt.item.w.toFixed(2)} kg</span> (${Math.round(pt.item.w * 1000)} g)</div>
-        <div class="text-slate-400 mt-0.5">${pt.item.dt}</div>
-      `;
+      inspDefault.classList.add("hidden");
+      inspActive.classList.remove("hidden");
+      inspectorBar.className = "min-h-[38px] flex items-center justify-between px-3.5 py-2 rounded-xl bg-slate-800 border border-slate-600 text-xs transition-colors shadow-sm";
 
-      // Convertir cx, cy a pixeles dentro del contenedor DOM
-      const pixelX = (pt.cx / W) * rect.width;
-      const pixelY = (pt.cy / H) * rect.height;
-
-      // Desplazar tooltip para no tapar el punto y evitar desbordar hacia la derecha
-      const isRightSide = pixelX > rect.width * 0.7;
-      const tooltipLeft = isRightSide ? (pixelX - 170) : (pixelX + 16);
-      const tooltipTop = Math.max(10, pixelY - 45);
-
-      tooltip.style.left = tooltipLeft + "px";
-      tooltip.style.top = tooltipTop + "px";
-      tooltip.classList.remove("hidden");
+      inspCatDot.className = `w-2.5 h-2.5 rounded-full shrink-0 ${pt.item.cat === 'mei' ? 'bg-blue-400' : pt.item.cat === 'sami' ? 'bg-orange-400' : 'bg-slate-400'}`;
+      inspCatName.textContent = pt.item.name;
+      inspDt.textContent = formatShortDate(pt.item.dt);
+      inspAgo.textContent = `• ${formatRelativeTime(pt.item.dt)}`;
+      inspWeight.textContent = pt.item.w.toFixed(2);
+      inspWeight.className = `text-sm sm:text-base font-black ${pt.item.cat === 'mei' ? 'text-blue-300' : pt.item.cat === 'sami' ? 'text-orange-300' : 'text-slate-300'}`;
+      inspG.textContent = `(${Math.round(pt.item.w * 1000)}g)`;
     }
 
-    function hideTooltip() {
+    function hideInspector() {
       const hoverGroup = document.getElementById("hover-group");
       if (hoverGroup) hoverGroup.style.display = "none";
-      if (tooltip) tooltip.classList.add("hidden");
+      inspActive.classList.add("hidden");
+      inspDefault.classList.remove("hidden");
+      inspectorBar.className = "min-h-[38px] flex items-center justify-between px-3.5 py-2 rounded-xl bg-slate-800/60 border border-slate-700/60 text-xs transition-colors";
     }
 
-    svg.addEventListener("mousemove", handlePointerMove);
-    svg.addEventListener("mouseleave", hideTooltip);
-    // Soporte táctil para móvil/tablet
-    svg.addEventListener("touchmove", (e) => {
+    chartWrapper.addEventListener("mousemove", (e) => handlePointer(e.clientX, e.clientY));
+    chartWrapper.addEventListener("mouseleave", hideInspector);
+
+    chartWrapper.addEventListener("touchstart", (e) => {
       if (e.touches && e.touches[0]) {
-        handlePointerMove(e.touches[0]);
+        handlePointer(e.touches[0].clientX, e.touches[0].clientY);
       }
     }, { passive: true });
-    svg.addEventListener("touchend", hideTooltip);
 
-    // Cargar datos al iniciar y refrescar cada 5 minutos
+    chartWrapper.addEventListener("touchmove", (e) => {
+      if (e.touches && e.touches[0]) {
+        handlePointer(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, { passive: true });
+
+    const resizeObserver = new ResizeObserver(() => {
+      renderChart();
+    });
+    resizeObserver.observe(chartWrapper);
+
     loadData();
     setInterval(loadData, 5 * 60 * 1000);
   </script>
