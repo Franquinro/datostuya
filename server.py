@@ -200,6 +200,9 @@ def sync_loop():
 
 # ================= SERVIDOR HTTP =================
 class AppRequestHandler(SimpleHTTPRequestHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory=BASE_DIR, **kwargs)
+
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path

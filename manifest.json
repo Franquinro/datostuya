@@ -1,0 +1,25 @@
+{
+  "name": "Mei & Sami • Control de Arenero",
+  "short_name": "Mei & Sami",
+  "description": "Monitor de peso e historial de usos del arenero inteligente de Mei y Sami",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/pwa_icon_192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/pwa_icon_512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
