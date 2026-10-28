@@ -6,8 +6,7 @@
   <title>Control de Peso: Mei & Sami</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    .cat-dot { transition: transform 0.15s ease, r 0.15s ease; cursor: pointer; }
-    .cat-dot:hover { transform: scale(1.6); }
+    .cat-dot { cursor: pointer; }
     .toggle-btn { transition: all 0.2s ease; cursor: pointer; user-select: none; }
   </style>
 </head>
@@ -51,7 +50,7 @@
 
     <!-- Contenedor del Gráfico SVG -->
     <div class="relative bg-slate-900 border border-slate-700/80 rounded-xl p-3 sm:p-4">
-      <svg id="chart" viewBox="0 0 580 240" class="w-full h-auto overflow-visible select-none"></svg>
+      <svg id="chart" viewBox="0 0 580 240" class="w-full h-auto overflow-visible select-none cursor-crosshair"></svg>
 
       <!-- Tooltip Flotante -->
       <div id="tooltip" class="hidden absolute pointer-events-none bg-slate-800 text-white border border-slate-600 shadow-2xl rounded-lg px-3 py-2 text-xs z-20 transition-opacity"></div>
@@ -64,7 +63,7 @@
           <span id="pulse-dot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block"></span>
           <span id="last-sync-text">Sincronizado</span>
         </span>
-        <button id="btn-sync-now" onclick="triggerManualSync()" class="px-2 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 text-[11px] transition-colors flex items-center gap-1">
+        <button id="btn-sync-now" onclick="triggerManualSync()" class="px-2 py-0.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 text-[11px] transition-colors flex items-center gap-1 cursor-pointer">
           🔄 Forzar sincronización
         </button>
       </div>
@@ -88,6 +87,9 @@
 
     const W = 580, H = 240;
     const padL = 52, padR = 20, padT = 20, padB = 36;
+
+    // Cache computed positions of rendered points for instant hover detection
+    let renderedPoints = [];
 
     async function loadData() {
       try {
@@ -136,6 +138,7 @@
       state[catKey] = !state[catKey];
       updateButtons();
       renderChart();
+      hideTooltip();
     }
 
     function updateButtons() {
@@ -163,6 +166,7 @@
 
       if (visibleData.length === 0) {
         svg.innerHTML = '<text x="290" y="120" text-anchor="middle" fill="#94A3B8">Selecciona al menos una gata</text>';
+        renderedPoints = [];
         return;
       }
 
@@ -230,17 +234,26 @@
 
       let paths = createLine('mei', '#3B82F6') + createLine('sami', '#EA580C');
 
-      // Puntos
+      // Puntos estáticos (sin scale transform para evitar saltos o parpadeos)
       let dots = '';
-      visibleData.forEach(p => {
-        const cx = getX(p.ts).toFixed(1);
-        const cy = getY(p.w).toFixed(1);
-        let col = '#94A3B8';
-        let r = 4.2;
-        if (p.cat === 'mei') { col = '#3B82F6'; r = 5; }
-        else if (p.cat === 'sami') { col = '#EA580C'; r = 5; }
+      renderedPoints = [];
 
-        dots += `<circle class="cat-dot" cx="${cx}" cy="${cy}" r="${r}" fill="${col}" stroke="#1E293B" stroke-width="1.8" data-id="${p.id}" />`;
+      visibleData.forEach(p => {
+        const cx = parseFloat(getX(p.ts).toFixed(1));
+        const cy = parseFloat(getY(p.w).toFixed(1));
+        let col = '#94A3B8';
+        let r = 4;
+        if (p.cat === 'mei') { col = '#3B82F6'; r = 4.8; }
+        else if (p.cat === 'sami') { col = '#EA580C'; r = 4.8; }
+
+        renderedPoints.push({
+          item: p,
+          cx: cx,
+          cy: cy,
+          color: col
+        });
+
+        dots += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${col}" stroke="#1E293B" stroke-width="1.8" />`;
       });
 
       // Eje X fechas (muestreo por día)
@@ -262,34 +275,109 @@
         }
       });
 
-      svg.innerHTML = gridHtml + paths + dots + xLabels;
+      // Elementos interactivos dinámicos: guía vertical y punto resaltado activo
+      const interactiveGroup = `
+        <g id="hover-group" style="display: none;">
+          <line id="hover-line" x1="0" y1="${padT}" x2="0" y2="${H - padB}" stroke="#64748B" stroke-opacity="0.4" stroke-dasharray="3,3" stroke-width="1" />
+          <circle id="hover-halo" cx="0" cy="0" r="10" fill="none" stroke="#FFFFFF" stroke-opacity="0.3" stroke-width="3" />
+          <circle id="hover-dot" cx="0" cy="0" r="6" fill="#3B82F6" stroke="#FFFFFF" stroke-width="2" />
+        </g>
+      `;
+
+      svg.innerHTML = gridHtml + paths + dots + xLabels + interactiveGroup;
     }
 
-    // Tooltip al pasar el ratón
-    svg.addEventListener("mousemove", (e) => {
-      const target = e.target;
-      if (target.classList.contains("cat-dot")) {
-        const id = parseInt(target.getAttribute("data-id"));
-        const item = allData.find(d => d.id === id);
-        if (!item) return;
+    // Manejo de interacción suave y sin parpadeos por proximidad
+    function handlePointerMove(e) {
+      if (!renderedPoints || renderedPoints.length === 0) return;
 
-        const rect = svg.getBoundingClientRect();
-        const badgeColor = item.cat === 'mei' ? 'text-blue-400' : item.cat === 'sami' ? 'text-orange-400' : 'text-slate-400';
+      const rect = svg.getBoundingClientRect();
+      // Escalar coordenadas del cliente al viewBox del SVG
+      const scaleX = W / rect.width;
+      const scaleY = H / rect.height;
+      const mouseSvgX = (e.clientX - rect.left) * scaleX;
+      const mouseSvgY = (e.clientY - rect.top) * scaleY;
 
-        tooltip.innerHTML = `
-          <div class="font-bold ${badgeColor}">🐱 ${item.name}</div>
-          <div class="mt-0.5">Peso: <span class="font-bold text-white">${item.w.toFixed(2)} kg</span> (${Math.round(item.w * 1000)} g)</div>
-          <div class="text-slate-400 mt-0.5">${item.dt}</div>
-        `;
-        tooltip.style.left = (e.clientX - rect.left + 14) + "px";
-        tooltip.style.top = (e.clientY - rect.top - 38) + "px";
-        tooltip.classList.remove("hidden");
-      } else {
-        tooltip.classList.add("hidden");
+      // Buscar el punto más cercano (distancia euclídea con ponderación horizontal)
+      let closest = null;
+      let minDistance = Infinity;
+
+      for (const pt of renderedPoints) {
+        const dx = (pt.cx - mouseSvgX);
+        const dy = (pt.cy - mouseSvgY);
+        // Damos prioridad a cercanía horizontal pero con límite
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < minDistance) {
+          minDistance = dist;
+          closest = pt;
+        }
       }
-    });
 
-    svg.addEventListener("mouseleave", () => tooltip.classList.add("hidden"));
+      // Radio de activación (45px en espacio SVG)
+      if (closest && minDistance < 45) {
+        showHover(closest, rect);
+      } else {
+        hideTooltip();
+      }
+    }
+
+    function showHover(pt, rect) {
+      const hoverGroup = document.getElementById("hover-group");
+      const hoverLine = document.getElementById("hover-line");
+      const hoverHalo = document.getElementById("hover-halo");
+      const hoverDot = document.getElementById("hover-dot");
+
+      if (hoverGroup && hoverLine && hoverDot) {
+        hoverLine.setAttribute("x1", pt.cx);
+        hoverLine.setAttribute("x2", pt.cx);
+
+        hoverHalo.setAttribute("cx", pt.cx);
+        hoverHalo.setAttribute("cy", pt.cy);
+
+        hoverDot.setAttribute("cx", pt.cx);
+        hoverDot.setAttribute("cy", pt.cy);
+        hoverDot.setAttribute("fill", pt.color);
+
+        hoverGroup.style.display = "block";
+      }
+
+      // Posicionar Tooltip relativo al contenedor SVG
+      const badgeColor = pt.item.cat === 'mei' ? 'text-blue-400' : pt.item.cat === 'sami' ? 'text-orange-400' : 'text-slate-400';
+      tooltip.innerHTML = `
+        <div class="font-bold ${badgeColor}">🐱 ${pt.item.name}</div>
+        <div class="mt-0.5">Peso: <span class="font-bold text-white">${pt.item.w.toFixed(2)} kg</span> (${Math.round(pt.item.w * 1000)} g)</div>
+        <div class="text-slate-400 mt-0.5">${pt.item.dt}</div>
+      `;
+
+      // Convertir cx, cy a pixeles dentro del contenedor DOM
+      const pixelX = (pt.cx / W) * rect.width;
+      const pixelY = (pt.cy / H) * rect.height;
+
+      // Desplazar tooltip para no tapar el punto y evitar desbordar hacia la derecha
+      const isRightSide = pixelX > rect.width * 0.7;
+      const tooltipLeft = isRightSide ? (pixelX - 170) : (pixelX + 16);
+      const tooltipTop = Math.max(10, pixelY - 45);
+
+      tooltip.style.left = tooltipLeft + "px";
+      tooltip.style.top = tooltipTop + "px";
+      tooltip.classList.remove("hidden");
+    }
+
+    function hideTooltip() {
+      const hoverGroup = document.getElementById("hover-group");
+      if (hoverGroup) hoverGroup.style.display = "none";
+      if (tooltip) tooltip.classList.add("hidden");
+    }
+
+    svg.addEventListener("mousemove", handlePointerMove);
+    svg.addEventListener("mouseleave", hideTooltip);
+    // Soporte táctil para móvil/tablet
+    svg.addEventListener("touchmove", (e) => {
+      if (e.touches && e.touches[0]) {
+        handlePointerMove(e.touches[0]);
+      }
+    }, { passive: true });
+    svg.addEventListener("touchend", hideTooltip);
 
     // Cargar datos al iniciar y refrescar cada 5 minutos
     loadData();
